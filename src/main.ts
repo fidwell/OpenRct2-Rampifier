@@ -1,3 +1,5 @@
+import * as utilities from "./utilities";
+
 export function activateTool() {
   ui.activateTool({
     id: "rampifier",
@@ -57,12 +59,12 @@ function apply(args: ToolEventArgs): void {
   const pathLocations: CoordsXYZ[] = [];
 
   const tileAtTopCoord = travel(<CoordsXY>{ x: mapX, y: mapY }, slopeDirection, 3);
-  calculateTopTiles(path, tileAtTopCoord, slopeDirection, pathLocations, (d) => turnRight(d));
-  calculateTopTiles(path, tileAtTopCoord, slopeDirection, pathLocations, (d) => turnLeft(d));
+  calculateTopTiles(path, tileAtTopCoord, slopeDirection, pathLocations, (d) => utilities.turnRight(d));
+  calculateTopTiles(path, tileAtTopCoord, slopeDirection, pathLocations, (d) => utilities.turnLeft(d));
 
   const tileAtBottomCoord = travel(<CoordsXY>{ x: mapX, y: mapY }, slopeDirection, -3);
-  const tileAtBottomCoordLeftSide = travel(tileAtBottomCoord, turnLeft(slopeDirection), 3);
-  const tileAtBottomCoordRightSide = travel(tileAtBottomCoord, turnRight(slopeDirection), 3);
+  const tileAtBottomCoordLeftSide = travel(tileAtBottomCoord, utilities.turnLeft(slopeDirection), 3);
+  const tileAtBottomCoordRightSide = travel(tileAtBottomCoord, utilities.turnRight(slopeDirection), 3);
   calculateBottomTiles(path, tileAtBottomCoordLeftSide, pathLocations);
   calculateBottomTiles(path, tileAtBottomCoordRightSide, pathLocations);
 
@@ -74,7 +76,8 @@ function apply(args: ToolEventArgs): void {
 }
 
 function isValidTile(tile: Tile): boolean {
-  // todo: check map edge bounds
+  if (!isWithinMapBounds(tile))
+    return false;
 
   const surfaces = tile.elements.filter(e => e.type === "surface");
   if (surfaces.length !== 1)
@@ -87,17 +90,18 @@ function isValidTile(tile: Tile): boolean {
 
   const paths = tile.elements.filter(e => e.type === "footpath");
   return paths.some(p => surface.baseHeight === p.baseHeight &&
-    slopeToDirection(surface.slope) === p.slopeDirection);
+    utilities.slopeToDirection(surface.slope) === p.slopeDirection);
 }
 
-function slopeToDirection(slope: number): Direction {
-  switch (slope) {
-    case 0b1100: return 0;
-    case 0b1001: return 1;
-    case 0b0011: return 2;
-    case 0b0110: return 3;
-  }
-  throw new RangeError("Slope not valid.");
+function isWithinMapBounds(tile: Tile): boolean {
+  const minX = tile.x - 3;
+  const maxX = tile.x + 3;
+  const minY = tile.y - 4;
+  const maxY = tile.y + 4;
+  return minX >= 2 &&
+         maxX <= map.size.x - 3 &&
+         minY >= 2 &&
+         maxY <= map.size.y - 3;
 }
 
 function placePathIfNeeded(coord: CoordsXYZ, pathSurface: number, pathRailings: number): void {
@@ -139,7 +143,7 @@ function calculateTopTiles(
   tileAtTopCoord: CoordsXY,
   slopeDirection: Direction,
   pathLocations: CoordsXYZ[],
-  turnFunc: (d: Direction) => Direction) {
+  turnFunc: (d: Direction) => Direction): void {
   const tile1 = travel(tileAtTopCoord, turnFunc(slopeDirection), 2);
   pathLocations.push(<CoordsXYZ>{
     x: tile1.x,
@@ -170,7 +174,7 @@ function calculateTopTiles(
 function calculateBottomTiles(
   path: FootpathElement,
   tile: CoordsXY,
-  pathLocations: CoordsXYZ[]) {
+  pathLocations: CoordsXYZ[]): void {
   pathLocations.push(<CoordsXYZ>{
     x: tile.x,
     y: tile.y,
@@ -181,12 +185,4 @@ function calculateBottomTiles(
     y: tile.y,
     z: path.baseHeight - 10
   });
-}
-
-function turnRight(direction: Direction): Direction {
-  return <Direction>((direction + 1) % 4);
-}
-
-function turnLeft(direction: Direction): Direction {
-  return <Direction>((direction + 3) % 4);
 }
